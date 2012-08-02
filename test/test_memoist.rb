@@ -5,19 +5,22 @@ class MemoistTest < Test::Unit::TestCase
   class Person
     extend Memoist
 
-    attr_reader :name_calls, :age_calls, :is_developer_calls, :name_query_calls
+    attr_reader :name_calls, :age_calls, :is_developer_calls, :name_query_calls, :temperature_calls, :friends_calls
 
     def initialize
       @name_calls = 0
       @age_calls = 0
       @is_developer_calls = 0
       @name_query_calls = 0
+      @temperature_calls = 0
+      @friends_calls = {}
     end
 
     def name
       @name_calls += 1
       "Josh"
     end
+    memoize :name
 
     def name?
       @name_query_calls += 1
@@ -34,8 +37,20 @@ class MemoistTest < Test::Unit::TestCase
       @age_calls += 1
       nil
     end
+    memoize :age
 
-    memoize :name, :age
+    def temperature
+      @temperature_calls += 1
+      nil
+    end
+    memoize :temperature, 1
+
+    def friends arg1, arg2
+      @friends_calls[ [arg1, arg2] ] ||= 0
+      @friends_calls[ [arg1, arg2] ] += 1
+      nil
+    end
+    memoize :friends, 1
 
     protected
 
@@ -116,6 +131,38 @@ class MemoistTest < Test::Unit::TestCase
   def setup
     @person = Person.new
     @calculator = Calculator.new
+  end
+
+  def test_memoization_timeout
+    @person.temperature
+    @person.temperature
+    assert_equal 1, @person.temperature_calls
+
+    sleep(2)
+
+    @person.temperature
+    @person.temperature
+    assert_equal 2, @person.temperature_calls
+  end
+
+  def test_memoization_timeout_with_args
+    @person.friends 1,2
+    @person.friends 1,2
+    assert_equal 1, @person.friends_calls[ [1,2] ]
+
+    @person.friends 3,4
+    @person.friends 3,4
+    assert_equal 1, @person.friends_calls[ [3,4] ]
+
+    sleep(2)
+
+    @person.friends 1,2
+    @person.friends 1,2
+    assert_equal 2, @person.friends_calls[ [1,2] ]
+
+    @person.friends 3,4
+    @person.friends 3,4
+    assert_equal 2, @person.friends_calls[ [3,4] ]
   end
 
   def test_memoization
